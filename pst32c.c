@@ -279,7 +279,7 @@ void gen_rnd_mat(VECTOR v, int N){
 }
 
 // PROCEDURE ASSEMBLY
-extern void prova(params* input);
+//extern void prova(params* input);
 
 void rotation(VECTOR axis, type theta, MATRIX R){
 
@@ -356,9 +356,9 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			newv[1]=r_c_n;
 			newv[2]=0.0;
 
-			rotation(v1, theta_c_n_ca, &R);
+			rotation(v1, theta_c_n_ca, R);
 
-			matrixProd(newv,&R);
+			matrixProd(newv,R);
 
 			coords[idx]=coords[idx-3]+newv[0];
 			coords[idx+1]=coords[idx-2]+newv[1];
@@ -380,9 +380,9 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			newv[1]=r_ca_n;
 			newv[2]=0.0;
 
-			rotation(v2, phi[i], &R);
+			rotation(v2, phi[i], R);
 
-			matrixProd(newv,&R);
+			matrixProd(newv,R);
 
 			coords[idx+3]=coords[idx]+newv[0];
 			coords[idx+4]=coords[idx+1]+newv[1];
@@ -403,9 +403,9 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			newv[1]=r_ca_c;
 			newv[2]=0.0;
 
-			rotation(v3, psi[i], &R);
+			rotation(v3, psi[i], R);
 
-			matrixProd(newv,&R);
+			matrixProd(newv,R);
 
 			coords[idx+6]=coords[idx+3]+newv[0];
 			coords[idx+7]=coords[idx+4]+newv[1];
@@ -424,7 +424,7 @@ type rama_energy(VECTOR phi, VECTOR psi){
 	for(int i = 0; i<n; i++){
 	    type alpha_dist = sqrt( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
 	    type beta_dist = sqrt( (phi[i]-beta_phi)*(phi[i]-beta_phi) + (psi[i]-beta_psi)*(psi[i]-beta_psi) );
-	    res = res + 0.5*min(alpha_dist, beta_dist);
+	    res = res + 0.5*fmin(alpha_dist, beta_dist);
 	}
 }
 
@@ -472,12 +472,12 @@ type hydrophobic_energy(char* s, MATRIX coords){ //OCCHIO A S NON SAPPIAMO SE VE
             v2[2] = ca_coords[j+2]; //abbiamo le coordinate del j-esimo amminoacido in v2
 
             if(dist(v1,v2)<10.0)
-                e = e + (hydrophobicity[s[i]] * hydrophobicity[s[j]])/dist(i,j);
+                e = e + (hydrophobicity[s[i]] * hydrophobicity[s[j]])/dist(v1,v2);
         }
     }
 	return e;
 }
-
+//TVCPYFEPMHALNYFNDFCHAPIPSRDDWFRSSRDWFNNWDRVNPCLDRTPKTIYALAGYRAAKHLNHYGYHSMLWCLVMDHMSASLWRLCFWVHTIENLADLMRMYKREQFFVPWFYNNVANYSWYCPQFWYHQNHWGARPYQKAWGDCAQMTHYMWTVCGVHFQMNVLEGKCMFEFALYTVYGGWTSTDLLAHTPYETSEWEEDRHETVDCVHLCWLHENYMHCCIFQMADMEWDAESGERKTDYGKPLKVLQQz
 
 
 type electrostatic_energy(char* s, MATRIX coords){
@@ -538,7 +538,7 @@ type packing_energy(char* s, MATRIX coords){
 }
 
 
-type energy(VECTOR s, VECTOR phi, VECTOR psi){
+type energy(char* s, VECTOR phi, VECTOR psi){
 	int n = sizeof(s) / sizeof(s[0]);
 	MATRIX coords = backbone(n, phi, psi);
 	type rama_e = rama_energy(phi, psi);
@@ -557,43 +557,45 @@ type energy(VECTOR s, VECTOR phi, VECTOR psi){
 
 
 void pst(params* input){
-  type energy=0;
-  char* aminoacidi = input->seq;
-  int n=sizeof(aminoacidi) / sizeof(aminoacidi[0]);
-  VECTOR v_phi = (type*)malloc(n * sizeof(type));
-  VECTOR v_psi = (type*)malloc(n * sizeof(type));
-  type T=input->to;
-  gen_rnd_mat(v_phi, n);
-  gen_rnd_mat(v_psi, n);
-  energy = energy(aminoacidi, v_phi, v_psi);
-  type t=0;
-  do{
-  	int i = rand()%n;
-  	type delta_phi =  (random()*2 * M_PI) - M_PI;
-    v_phi[i] = v_phi[i] + delta_phi;
-	type delta_psi =  (random()*2 * M_PI) - M_PI;
-	v_psi[i] = v_phi[i] + delta_psi;
-    type delta_e = energy(aminoacidi, v_phi, v_psi)-energy;
-    if(delta_e<=0.0){
-      energy = energy(aminoacidi, v_phi, v_psi);
-    }else{
-      type p=exp(-(delta_e)/(input->k*T));
-      int r=rand()%1;//vedere
-      if(r<=p){
-      	energy = energy(aminoacidi, v_phi, v_psi);
-      }else{
-      	v_phi[i] = v_phi[i] - delta_phi;
-      	v_psi[i] = v_phi[i] - delta_psi;//vedere se - o +
-      }
-    }
-    t=t+1;
-    T=input->to-sqrt(input->alpha*t);
-    }while(T>=0);
-    printf("hello\n");
-    //ritornare vettori
+	printf("hello");
+	type energy_p=0;
+	char* aminoacidi = input->seq;
+	int n=sizeof(aminoacidi) / sizeof(aminoacidi[0]);
+	VECTOR v_phi = (type*)malloc(n * sizeof(type));
+	VECTOR v_psi = (type*)malloc(n * sizeof(type));
+	type T=input->to;
+	gen_rnd_mat(v_phi, n);
+	gen_rnd_mat(v_psi, n);
+	energy_p = energy(aminoacidi, v_phi, v_psi);
+	type t=0;
+	do{
+		int i = rand()%n;
+		type delta_phi =  (random()*2 * M_PI) - M_PI;
+		v_phi[i] = v_phi[i] + delta_phi;
+		type delta_psi =  (random()*2 * M_PI) - M_PI;
+		v_psi[i] = v_phi[i] + delta_psi;
+		type delta_e = energy(aminoacidi, v_phi, v_psi)-energy_p;
+		if(delta_e<=0.0){
+		energy_p = energy(aminoacidi, v_phi, v_psi);
+		}else{
+		type p=exp(-(delta_e)/(input->k*T));
+		int r=rand()%1;//vedere
+		if(r<=p){
+			energy_p = energy(aminoacidi, v_phi, v_psi);
+		}else{
+			v_phi[i] = v_phi[i] - delta_phi;
+			v_psi[i] = v_phi[i] - delta_psi;//vedere se - o +
+		}
+		}
+		t=t+1;
+		T=input->to-sqrt(input->alpha*t);
+		}while(T>=0);
+		printf("hello\n");
+		//ritornare vettori
 }
 
 int main(int argc, char** argv) {
+	printf("hello");
 	char fname_phi[256];
 	char fname_psi[256];
 	char* seqfilename = NULL;
@@ -745,7 +747,7 @@ int main(int argc, char** argv) {
 	}
 
 	// COMMENTARE QUESTA RIGA!
-	prova(input);
+	//prova(input);
 	//
 
 	//
@@ -769,7 +771,7 @@ int main(int argc, char** argv) {
 	sprintf(fname_psi, "out32_%d_%d_psi.ds2", input->N, input->sd);
 	save_out(fname_psi, input->psi, input->N);
 	if(input->display){
-		if(input->phi == NULL || input->psi)
+		if(input->phi == NULL || input->psi == NULL)
 			printf("out: NULL\n");
 		else{
 			int i,j;
