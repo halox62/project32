@@ -414,6 +414,67 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 	return coords;
 }
 
+void rama_energy(VECTOR phi, VECTOR psi, type e){
+    int n = phi.lenght;
+    float alpha_phi = -57.8, alpha_psi = -47.0;
+    float beta_phi = -119.0, beta_psi = 113.0;
+ 
+    for(int i = 0; i<n; i++){
+        type alpha_dist = sqr( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
+        type beta_dist = sqr( (phi[i]-beta_phi)*(phi[i]-beta_phi) + (psi[i]-beta_psi)*(psi[i]-beta_psi) );
+        e = e + 0.5*min(alpha_dist, beta_dist);
+    }
+}
+ 
+type min(type a, type b){
+    if(a<b){
+        return a;
+    }
+    return b;
+}
+ 
+ 
+void hydrophobic-energy(VECTOR s, MATRIX coords, type e){ //OCCHIO A S NON SAPPIAMO SE VECTOR
+    int n = s.lenght;
+    MATRIX ca_coords = coordinate_c_alpha(coords, n); //evitabile come il metodo sotto :)
+ 
+    float v1[3], v2[3];
+ 
+    for(int i = 0; i<n*3; i = i+3){
+ 
+        v1[0] = ca_coords[i];
+        v1[1] = ca_coords[i+1]
+        v1[2] = ca_coords[i+2]      //abbiamo le coordinate dell'i-esimo amminoacido in v1
+ 
+        for(int j = i+3; j<n*3; j = j+3){
+ 
+            v2[0] = ca_coords[j];
+            v2[1] = ca_coords[j+1]
+            v2[2] = ca_coords[j+2]  //abbiamo le coordinate del j-esimo amminoacido in v2
+ 
+            if(dist(v1,v2)<10.0)
+                e = e + (hydrophobicity[s[i]] * hydrophobicity[s[j]])/dist(i,j);
+        }
+    }
+}
+ 
+MATRIX coordinate_c_alpha(MATRIX coords, int n){
+    MATRIX ris = aligned_alloc(16, n*3);/////////DA controllare;
+    int idx = 0;
+    for(int i = 3; i<n*9; i = i+9){
+        ris[idx] = coords[i];
+        ris[idx+1] = coords[i+1];
+        ris[idx+2] = coords[i+2];
+        idx+=3;
+    }
+    return ris;
+}
+ 
+float dist(VECTOR v1, VECTOR v2){
+    return sqr((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[3]-v1[3])*(v2[3]-v1[3]));
+}
+
+//vhsjsdghskajdhs
 
 
 void pst(params* input){/////////////////////////////////////////////////////////////////////SONO QUA!!!!!!!!
