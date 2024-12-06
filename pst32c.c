@@ -435,7 +435,7 @@ type min(type a, type b){
 }
  
  
-void hydrophobic-energy(char* s, MATRIX coords, type e){ //OCCHIO A S NON SAPPIAMO SE VECTOR
+void hydrophobic_energy(char* s, MATRIX coords, type e){ //OCCHIO A S NON SAPPIAMO SE VECTOR
     int n = s.lenght;
     MATRIX ca_coords = coordinate_c_alpha(coords, n); //evitabile come il metodo sotto :)
  
@@ -475,7 +475,7 @@ float dist(VECTOR v1, VECTOR v2){
     return sqr((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[3]-v1[3])*(v2[3]-v1[3]));
 }
 
-void hydrophobic_energy(char* s, MATRIX coords, type e){
+void electrostatic_energy(char* s, MATRIX coords, type e){
 	int n = s.lenght;
 	MATRIX ca_coords = coordinate_c_alpha(coords, n);
 
