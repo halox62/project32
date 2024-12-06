@@ -595,7 +595,6 @@ void pst(params* input){
 }
 
 int main(int argc, char** argv) {
-	printf("hello");
 	char fname_phi[256];
 	char fname_psi[256];
 	char* seqfilename = NULL;
