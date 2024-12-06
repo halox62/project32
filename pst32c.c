@@ -40,6 +40,7 @@
 */
 
 
+#include <iso646.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -345,7 +346,7 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			v1[1]=coords[idx-2]-coords[idx-5];
 			v1[2]=coords[idx-1]-coords[idx-4];
 
-			norma=sqr(v1[0]*v1[0]+v1[1]*v1[1]+v1[2]*v1[2]);
+			norma=sqrt(v1[0]*v1[0]+v1[1]*v1[1]+v1[2]*v1[2]);
 
 			v1[0]=v1[0] /= norma;
 			v1[1]=v1[1] /= norma;
@@ -369,7 +370,7 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			v2[1]=coords[idx+1]-coords[idx-2];
 			v2[2]=coords[idx+2]-coords[idx-1];
 
-			norma=sqr(v2[0]*v2[0]+v2[1]*v2[1]+v2[2]*v2[2]);
+			norma=sqrt(v2[0]*v2[0]+v2[1]*v2[1]+v2[2]*v2[2]);
 
 			v2[0]=v2[0] /= norma;
 			v2[1]=v2[1] /= norma;
@@ -392,7 +393,7 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			v3[1]=coords[idx+4]-coords[idx+1];
 			v3[2]=coords[idx+5]-coords[idx+2];
 
-			norma=sqr(v3[0]*v3[0]+v3[1]*v3[1]+v3[2]*v3[2]);
+			norma=sqrt(v3[0]*v3[0]+v3[1]*v3[1]+v3[2]*v3[2]);
 
 			v3[0]=v3[0] /= norma;
 			v3[1]=v3[1] /= norma;
@@ -414,69 +415,74 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 	return coords;
 }
 
-void rama_energy(VECTOR phi, VECTOR psi){
+type rama_energy(VECTOR phi, VECTOR psi){
   	type res=0;
-	int n = phi.lenght;
+	int n = sizeof(phi) / sizeof(phi[0]);
 	float alpha_phi = -57.8, alpha_psi = -47.0;
 	float beta_phi = -119.0, beta_psi = 113.0;
 
 	for(int i = 0; i<n; i++){
-	    type alpha_dist = sqr( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
-	    type beta_dist = sqr( (phi[i]-beta_phi)*(phi[i]-beta_phi) + (psi[i]-beta_psi)*(psi[i]-beta_psi) );
+	    type alpha_dist = sqrt( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
+	    type beta_dist = sqrt( (phi[i]-beta_phi)*(phi[i]-beta_phi) + (psi[i]-beta_psi)*(psi[i]-beta_psi) );
 	    res = res + 0.5*min(alpha_dist, beta_dist);
 	}
 }
- 
+
 type min(type a, type b){
     if(a<b){
         return a;
     }
     return b;
 }
- 
- 
-void hydrophobic_energy(char* s, MATRIX coords, type e){ //OCCHIO A S NON SAPPIAMO SE VECTOR
-    int n = s.lenght;
+
+MATRIX coordinate_c_alpha(MATRIX coords, int n){
+	MATRIX ris = aligned_alloc(16, n*3);
+	int idx = 0;
+	for(int i = 3; i<n*9; i = i+9){
+		ris[idx] = coords[i];
+		ris[idx+1] = coords[i+1];
+		ris[idx+2] = coords[i+2];
+		idx+=3;
+	}
+	return ris;
+}
+
+float dist(VECTOR v1, VECTOR v2){
+	return sqrt((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[3]-v1[3])*(v2[3]-v1[3]));
+}
+
+
+type hydrophobic_energy(char* s, MATRIX coords){ //OCCHIO A S NON SAPPIAMO SE VECTOR
+	type e;
+    int n = sizeof(s) / sizeof(s[0]);
     MATRIX ca_coords = coordinate_c_alpha(coords, n); //evitabile come il metodo sotto :)
- 
+
     float v1[3], v2[3];
- 
+
     for(int i = 0; i<n*3; i = i+3){
- 
+
         v1[0] = ca_coords[i];
-        v1[1] = ca_coords[i+1]
-        v1[2] = ca_coords[i+2]      //abbiamo le coordinate dell'i-esimo amminoacido in v1
- 
+        v1[1] = ca_coords[i+1];
+        v1[2] = ca_coords[i+2]; //abbiamo le coordinate dell'i-esimo amminoacido in v1
+
         for(int j = i+3; j<n*3; j = j+3){
- 
+
             v2[0] = ca_coords[j];
-            v2[1] = ca_coords[j+1]
-            v2[2] = ca_coords[j+2]  //abbiamo le coordinate del j-esimo amminoacido in v2
- 
+            v2[1] = ca_coords[j+1];
+            v2[2] = ca_coords[j+2]; //abbiamo le coordinate del j-esimo amminoacido in v2
+
             if(dist(v1,v2)<10.0)
                 e = e + (hydrophobicity[s[i]] * hydrophobicity[s[j]])/dist(i,j);
         }
     }
-}
- 
-MATRIX coordinate_c_alpha(MATRIX coords, int n){
-    MATRIX ris = aligned_alloc(16, n*3);
-    int idx = 0;
-    for(int i = 3; i<n*9; i = i+9){
-        ris[idx] = coords[i];
-        ris[idx+1] = coords[i+1];
-        ris[idx+2] = coords[i+2];
-        idx+=3;
-    }
-    return ris;
-}
- 
-float dist(VECTOR v1, VECTOR v2){
-    return sqr((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[3]-v1[3])*(v2[3]-v1[3]));
+	return e;
 }
 
-void electrostatic_energy(char* s, MATRIX coords, type e){
-	int n = s.lenght;
+
+
+type electrostatic_energy(char* s, MATRIX coords){
+	type e;
+	int n = sizeof(s) / sizeof(s[0]);
 	MATRIX ca_coords = coordinate_c_alpha(coords, n);
 
 	float v1[3], v2[3];
@@ -484,24 +490,25 @@ void electrostatic_energy(char* s, MATRIX coords, type e){
 	for(int i = 0; i<n*3; i = i+3){
 
 		v1[0] = ca_coords[i];
-		v1[1] = ca_coords[i+1]
-		v1[2] = ca_coords[i+2]
+		v1[1] = ca_coords[i+1];
+		v1[2] = ca_coords[i+2];
 
 		for(int j = i+3; j<n*3; j = j+3){
 
 			v2[0] = ca_coords[j];
-			v2[1] = ca_coords[j+1]
-			v2[2] = ca_coords[j+2]
+			v2[1] = ca_coords[j+1];
+			v2[2] = ca_coords[j+2];
 
 			if(dist(v1,v2)<10.0 and charge[s[(i/3)%3]]!=0 and charge[s[(j/3)%3]])
 				e = e + (hydrophobicity[s[(i/3)%3]] * hydrophobicity[s[(j/3)%3]])/dist(v1,v2);
 		}
 	}
+	return e;
 }
 
 type packing_energy(char* s, MATRIX coords){
 
-	int n = s.lenght;
+	int n = sizeof(s) / sizeof(s[0]);
 	MATRIX ca_coords = coordinate_c_alpha(coords, n);
 	type e=0;
 
@@ -510,22 +517,21 @@ type packing_energy(char* s, MATRIX coords){
 	for(int i = 0; i<n*3; i = i+3){
 
 		v1[0] = ca_coords[i];
-		v1[1] = ca_coords[i+1]
-		v1[2] = ca_coords[i+2]      //abbiamo le coordinate dell'i-esimo amminoacido in v1
+		v1[1] = ca_coords[i+1];
+		v1[2] = ca_coords[i+2];    //abbiamo le coordinate dell'i-esimo amminoacido in v1
 
 		type density=0;
 
 		for(int j = 0; j<n*3; j = j+3){
 
 			v2[0] = ca_coords[j];
-			v2[1] = ca_coords[j+1]
-			v2[2] = ca_coords[j+2]  //abbiamo le coordinate del j-esimo amminoacido in v2
+			v2[1] = ca_coords[j+1];
+			v2[2] = ca_coords[j+2];  //abbiamo le coordinate del j-esimo amminoacido in v2
 
 			if(i!=0 and dist(v1,v2)<10.0)
 				density = density + (volume[s[(j/3)%3]]/(dist(v1, v2)*dist(v1, v2)*dist(v1, v2)));
 		}
-
-		e = e + (volume[s[(j/3)%3]]-(density*density));
+		e = e + (volume[s[(i/3)%3]]-(density*density));
 	}
 
 	return e;
@@ -533,7 +539,8 @@ type packing_energy(char* s, MATRIX coords){
 
 
 type energy(VECTOR s, VECTOR phi, VECTOR psi){
-	MATRIX coords = backbone(s.lenght, phi, psi);
+	int n = sizeof(s) / sizeof(s[0]);
+	MATRIX coords = backbone(n, phi, psi);
 	type rama_e = rama_energy(phi, psi);
 	type hydro_e = hydrophobic_energy(s,coords);
 	type elec_e = electrostatic_energy(s, coords);
@@ -542,7 +549,7 @@ type energy(VECTOR s, VECTOR phi, VECTOR psi){
 	type w_rama = 1.0, w_hydro = 0.5, w_elec = 0.2, w_pack = 0.3;
 	//Energia totale
 	type total_e = w_rama*rama_e + w_hydro*hydro_e + w_elec*elec_e + w_pack*pack_e;
-	return total_e
+	return total_e;
 }
 
 
@@ -550,15 +557,16 @@ type energy(VECTOR s, VECTOR phi, VECTOR psi){
 
 
 void pst(params* input){
+  type energy=0;
   char* aminoacidi = input->seq;
-  int n=aminoacidi.lenght;
+  int n=sizeof(aminoacidi) / sizeof(aminoacidi[0]);
   VECTOR v_phi = (type*)malloc(n * sizeof(type));
   VECTOR v_psi = (type*)malloc(n * sizeof(type));
   type T=input->to;
-  type* phi = gen_rnd_mat(v_phi, n)
-  type* phi = gen_rnd_mat(v_psi, n)
-  type energy = energy(aminoacidi, v_phi, v_psi);
-  type t=0.0;
+  gen_rnd_mat(v_phi, n);
+  gen_rnd_mat(v_psi, n);
+  energy = energy(aminoacidi, v_phi, v_psi);
+  type t=0;
   do{
   	int i = rand()%n;
   	type delta_phi =  (random()*2 * M_PI) - M_PI;
@@ -579,8 +587,8 @@ void pst(params* input){
       }
     }
     t=t+1;
-    T=input->to-sqr(input->alpha*t);
-    }while(T>=0)
+    T=input->to-sqrt(input->alpha*t);
+    }while(T>=0);
     printf("hello\n");
     //ritornare vettori
 }
