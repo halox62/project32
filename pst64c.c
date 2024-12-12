@@ -1,10 +1,10 @@
 /**************************************************************************************
 * 
 * CdL Magistrale in Ingegneria Informatica
-* Corso di Architetture e Programmazione dei Sistemi di Elaborazione - a.a. 2024/25
+* Corso di Architetture e Programmazione dei Sistemi di Elaborazione - a.a. 2020/21
 * 
 * Progetto dell'algoritmo Predizione struttura terziaria proteine 221 231 a
-* in linguaggio assembly x86-32 + SSE
+* in linguaggio assembly x86-64 + SSE
 * 
 * F. Angiulli F. Fassetti S. Nisticò, novembre 2024
 * 
@@ -26,21 +26,19 @@
 * 
 * potrebbe essere necessario installare le seguenti librerie:
 * 
-*    sudo apt-get install lib32gcc-4.8-dev (o altra versione)
+*    sudo apt-get install lib64gcc-4.8-dev (o altra versione)
 *    sudo apt-get install libc6-dev-i386
 * 
 * Per generare il file eseguibile:
 * 
-* nasm -f elf32 pst32.nasm && gcc -m32 -msse -O0 -no-pie sseutils32.o pst32.o pst32c.c -o pst32c -lm && ./pst32c $pars
+* nasm -f elf64 pst64.nasm && gcc -m64 -msse -O0 -no-pie sseutils64.o pst64.o pst64c.c -o pst64c -lm && ./pst64c $pars
 * 
 * oppure
 * 
-* ./runpst32
+* ./runpst64
 * 
 */
 
-
-#include <iso646.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -49,24 +47,23 @@
 #include <libgen.h>
 #include <xmmintrin.h>
 
-
-#define	type		float
+#define	type		double
 #define	MATRIX		type*
 #define	VECTOR		type*
 
 #define random() (((type) rand())/RAND_MAX)
 
-type hydrophobicity[] = {1.8, -1, 2.5, -3.5, -3.5, 2.8, -0.4, -3.2, 4.5, -1, -3.9, 3.8, 1.9, -3.5, -1, -1.6, -3.5, -4.5, -0.8, -0.7, -1, 4.2, -0.9, -1, -1.3, -1};		// hydrophobicity
-type volume[] = {88.6, -1, 108.5, 111.1, 138.4, 189.9, 60.1, 153.2, 166.7, -1, 168.6, 166.7, 162.9, 114.1, -1, 112.7, 143.8, 173.4, 89.0, 116.1, -1, 140.0, 227.8, -1, 193.6, -1};		// volume
-type charge[] = {0, -1, 0, -1, -1, 0, 0, 0.5, 0, -1, 1, 0, 0, 0, -1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, -1};		// charge
+type hydrophobicity[] = {1.8, -1, 2.5, -3.5, -3.5, 2.8, -0.4, -3.2, 4.5, -1, -3.9, 3.8, 1.9, -3.5, -1, -1.6, -3.5, -4.5, -0.8, -0.7, -1, 4.2, -0.9, -1, -1.3, -1};		
+type volume[] = {88.6, -1, 108.5, 111.1, 138.4, 189.9, 60.1, 153.2, 166.7, -1, 168.6, 166.7, 162.9, 114.1, -1, 112.7, 143.8, 173.4, 89.0, 116.1, -1, 140.0, 227.8, -1, 193.6, -1};
+type charge[] = {0, -1, 0, -1, -1, 0, 0, 0.5, 0, -1, 1, 0, 0, 0, -1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, -1};
 
 typedef struct {
 	char* seq;		// sequenza di amminoacidi
-	int N;			// lunghezza sequenza
-	unsigned int sd; 	// seed per la generazione casuale
+	int N;		// lunghezza sequenza
+	unsigned int sd; 	// seed per la generazione	casuale
 	type to;		// temperatura INIZIALE
 	type alpha;		// tasso di raffredamento
-	type k;		// costante
+	type k;			// costante
 	VECTOR hydrophobicity; // hydrophobicity
 	VECTOR volume;		// volume
 	VECTOR charge;		// charge
@@ -136,7 +133,6 @@ void dealloc_matrix(void* mat) {
 *****************************************************************************
 * 
 */
-
 MATRIX load_data(char* filename, int *n, int *k) {
 	FILE* fp;
 	int rows, cols, status, i;
@@ -180,14 +176,11 @@ MATRIX load_data(char* filename, int *n, int *k) {
 *****************************************************************************
 * 
 */
-
 char* load_seq(char* filename, int *n, int *k) {
 	FILE* fp;
 	int rows, cols, status, i;
 	
 	fp = fopen(filename, "rb");
-
-	
 	
 	if (fp == NULL){
 		printf("'%s': bad data file name!\n", filename);
@@ -220,7 +213,6 @@ char* load_seq(char* filename, int *n, int *k) {
 * 	successivi 4 byte: numero di colonne (M) --> numero intero a 32 bit
 * 	successivi N*M*4 byte: matrix data in row-major order --> numeri interi o floating-point a precisione singola
 */
-
 void save_data(char* filename, void* X, int n, int k) {
 	FILE* fp;
 	int i;
@@ -253,7 +245,6 @@ void save_data(char* filename, void* X, int n, int k) {
 * 	successivi 4 byte: numero di elementi k     --> numero intero a 32 bit
 * 	successivi byte: elementi del vettore 		--> k numero floating-point a precisione singola
 */
-
 void save_out(char* filename, MATRIX X, int k) {
 	FILE* fp;
 	int i;
@@ -275,7 +266,6 @@ void save_out(char* filename, MATRIX X, int k) {
 *	per riempire una struttura dati di dimensione Nx1
 * 
 */
-
 void gen_rnd_mat(VECTOR v, int N){
 	int i;
 
@@ -286,356 +276,21 @@ void gen_rnd_mat(VECTOR v, int N){
 }
 
 // PROCEDURE ASSEMBLY
-//extern void prova(params* input);
-
-void rotation(VECTOR axis, type theta, MATRIX R){
-
-	type scalare=axis[0]*axis[0]+axis[1]*axis[1]+axis[1]*axis[1];
-	axis[0] /= scalare;
-	axis[1] /= scalare;
-	axis[2] /= scalare;
-
-	type a= cos(theta / 2.0);
-	type b= -axis[0] +sin(theta / 2.0);
-	type c= -axis[1] +sin(theta / 2.0);
-	type d= -axis[2] +sin(theta / 2.0);
-
-	type aa = a * a, bb = b * b, cc = c * c, dd = d * d;
-	type bc = b * c, ad = a * d, cd = c * d, ab = a * b, bd = b * d, ac = a * c;
-
-	R[0] = aa + bb - cc - dd;
-	R[1] = 2 * (bc + ad);
-	R[2] = 2 * (bd - ac);
-
-	R[3] = 2 * (bc - ad);
-	R[4] =  aa + cc - bb - dd;
-	R[5] = 2 * (cd + ab);
-
-	R[6] = 2 * (bd + ac);
-	R[7] = 2 * (cd - ab);
-	R[8] = aa + dd - bb - cc;
-
-}
-
-void matrixProd(MATRIX m1, MATRIX m2){
-	m1[0]=m1[0]*m2[0]+m1[0]*m2[3]+m1[0]*m2[6];
-	m1[1]=m1[1]*m2[1]+m1[1]*m2[4]+m1[1]*m2[7];
-	m1[2]=m1[2]*m2[2]+m1[2]*m2[5]+m1[2]*m2[8];
-}
-
-MATRIX backbone(int n, VECTOR phi, VECTOR psi){
-	float v1[3];
-	float v2[3];
-	float v3[3];
-	type norma=0;
-	float newv[3];
-	MATRIX R = (MATRIX)malloc(9*sizeof(type));
-	const type r_ca_n = 1.46;
-	const type r_ca_c = 1.52;
-	const type r_c_n = 1.33;
-
-	const type theta_ca_n_c = 2.028;
-	const type theta_c_n_ca = 2.124;
-	const type theta_n_ca_c = 1.940;
-
-	MATRIX coords = aligned_alloc(16, ((n * 3) * 3) * sizeof(type));
-	
-	coords[0]=0.0,coords[1]=0.0,coords[2]=0.0;//N
-	coords[3]=r_ca_n,coords[4]=0.0,coords[5]=0.0;//Ca
-
-
-	//	N	 Ca	   C
-	//0,0,0,1,0,0,1,0,0
-
-	for(int i=0; i<n ;i++){
-		int idx= i*9;
-		if(i>0){
-			//Posiziona N usando l'ultimo C
-			v1[0]=coords[idx-3]-coords[idx-6];
-			v1[1]=coords[idx-2]-coords[idx-5];
-			v1[2]=coords[idx-1]-coords[idx-4];
-
-			norma=sqrt(v1[0]*v1[0]+v1[1]*v1[1]+v1[2]*v1[2]);
-
-			v1[0]=v1[0] /= norma;
-			v1[1]=v1[1] /= norma;
-			v1[2]=v1[2] /= norma;
-
-			newv[0]=0.0;
-			newv[1]=r_c_n;
-			newv[2]=0.0;
-
-			rotation(v1, theta_c_n_ca, R);
-
-			matrixProd(newv,R);
-
-			coords[idx]=coords[idx-3]+newv[0];
-			coords[idx+1]=coords[idx-2]+newv[1];
-			coords[idx+2]=coords[idx-1]+newv[2];
-
-
-			//Posiziona Ca usando l'ultimo phi
-			v2[0]=coords[idx]-coords[idx-3];
-			v2[1]=coords[idx+1]-coords[idx-2];
-			v2[2]=coords[idx+2]-coords[idx-1];
-
-			norma=sqrt(v2[0]*v2[0]+v2[1]*v2[1]+v2[2]*v2[2]);
-
-			v2[0]=v2[0] /= norma;
-			v2[1]=v2[1] /= norma;
-			v2[2]=v2[2] /= norma;
-
-			newv[0]=0.0;
-			newv[1]=r_ca_n;
-			newv[2]=0.0;
-
-			rotation(v2, phi[i], R);
-
-			matrixProd(newv,R);
-
-			coords[idx+3]=coords[idx]+newv[0];
-			coords[idx+4]=coords[idx+1]+newv[1];
-			coords[idx+5]=coords[idx+2]+newv[2];
-		}else{
-			//Posiziona C usando l'ultimo psi
-			v3[0]=coords[idx+3]-coords[idx];
-			v3[1]=coords[idx+4]-coords[idx+1];
-			v3[2]=coords[idx+5]-coords[idx+2];
-
-			norma=sqrt(v3[0]*v3[0]+v3[1]*v3[1]+v3[2]*v3[2]);
-
-			v3[0]=v3[0] /= norma;
-			v3[1]=v3[1] /= norma;
-			v3[2]=v3[2] /= norma;
-
-			newv[0]=0.0;
-			newv[1]=r_ca_c;
-			newv[2]=0.0;
-
-			rotation(v3, psi[i], R);
-
-			matrixProd(newv,R);
-
-			coords[idx+6]=coords[idx+3]+newv[0];
-			coords[idx+7]=coords[idx+4]+newv[1];
-			coords[idx+8]=coords[idx+5]+newv[2];
-		}
-	}
-	return coords;
-}
-
-type rama_energy(VECTOR phi, VECTOR psi){
-  	type res=0;
-	int n = sizeof(phi) / sizeof(phi[0]);
-	float alpha_phi = -57.8, alpha_psi = -47.0;
-	float beta_phi = -119.0, beta_psi = 113.0;
-
-	for(int i = 0; i<n; i++){
-	    type alpha_dist = sqrt( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
-	    type beta_dist = sqrt( (phi[i]-beta_phi)*(phi[i]-beta_phi) + (psi[i]-beta_psi)*(psi[i]-beta_psi) );
-	    res = res + 0.5*fmin(alpha_dist, beta_dist);
-	}
-	return res;
-}
-
-type min(type a, type b){
-    if(a<b){
-        return a;
-    }
-    return b;
-}
-
-MATRIX coordinate_c_alpha(MATRIX coords, int n){
-	MATRIX ris = aligned_alloc(16, ((n*3)*3)*sizeof(type));
-	int idx = 0;
-	for(int i = 3; i<n*9; i = i+9){
-		ris[idx] = coords[i];
-		ris[idx+1] = coords[i+1];
-		ris[idx+2] = coords[i+2];
-		idx+=3;
-	}
-	return ris;
-}
-
-float dist(VECTOR v1, VECTOR v2){
-	return sqrt((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[3]-v1[3])*(v2[3]-v1[3]));
-}
-
-
-type hydrophobic_energy(char* s, MATRIX coords){ //OCCHIO A S NON SAPPIAMO SE VECTOR
-	type e;
-    int n = sizeof(s) / sizeof(s[0]);
-    MATRIX ca_coords = coordinate_c_alpha(coords, n); //evitabile come il metodo sotto :)
-    float v1[3], v2[3];
-
-    for(int i = 0; i<n*3; i = i+3){
-
-        v1[0] = ca_coords[i];
-        v1[1] = ca_coords[i+1];
-        v1[2] = ca_coords[i+2]; //abbiamo le coordinate dell'i-esimo amminoacido in v1
-
-        for(int j = i+3; j<n*3; j = j+3){
-
-            v2[0] = ca_coords[j];
-            v2[1] = ca_coords[j+1];
-            v2[2] = ca_coords[j+2]; //abbiamo le coordinate del j-esimo amminoacido in v2
-
-            if(dist(v1,v2)<10.0){
-				e = e + (hydrophobicity[s[i]] * hydrophobicity[s[j]])/dist(v1,v2);//controllare conversione i //////////////////////////////////////////////////////////////////////////////
-			}
-                
-        }
-    }
-	return e;
-}
-
-
-
-type electrostatic_energy(char* s, MATRIX coords){
-	type e;
-	int n = sizeof(s) / sizeof(s[0]);
-	MATRIX ca_coords = coordinate_c_alpha(coords, n);
-
-	float v1[3], v2[3];
-
-	for(int i = 0; i<n*3; i = i+3){
-
-		v1[0] = ca_coords[i];
-		v1[1] = ca_coords[i+1];
-		v1[2] = ca_coords[i+2];
-
-
-		int amm=0;
-
-		for(int j = i+3; j<n*3; j = j+3){
-
-			v2[0] = ca_coords[j];
-			v2[1] = ca_coords[j+1];
-			v2[2] = ca_coords[j+2];
-
-			amm=(int)s[(j/3)%3]-65;
-
-			if(dist(v1,v2)<10.0 and charge[amm]!=0 and charge[amm])
-				e = e + (hydrophobicity[amm] * hydrophobicity[amm])/dist(v1,v2);
-		}
-	}
-	return e;
-}
-
-type packing_energy(char* s, MATRIX coords){
-
-	int n = sizeof(s) / sizeof(s[0]);
-	MATRIX ca_coords = coordinate_c_alpha(coords, n);
-	type e=0;
-	
-
-	float v1[3], v2[3];
-
-	for(int i = 0; i<n*3; i = i+3){
-
-		v1[0] = ca_coords[i];
-		v1[1] = ca_coords[i+1];
-		v1[2] = ca_coords[i+2];    //abbiamo le coordinate dell'i-esimo amminoacido in v1
-
-		type density=0;
-		int amm=0;
-
-		for(int j = 0; j<n*3; j = j+3){
-
-			v2[0] = ca_coords[j];
-			v2[1] = ca_coords[j+1];
-			v2[2] = ca_coords[j+2];  //abbiamo le coordinate del j-esimo amminoacido in v2
-
-			
-
-			if(i!=0 and dist(v1,v2)<10.0){
-				amm=((int)s[((j/3)%3)])-65;
-				density = density + (volume[amm]/(dist(v1, v2)*dist(v1, v2)*dist(v1, v2)));
-			}
-				
-		}
-		e = e + (volume[amm]-(density*density));
-	}
-
-	return e;
-}
-
-
-type energy(char* s, VECTOR phi, VECTOR psi){
-	int n = sizeof(s) / sizeof(s[0]);
-	MATRIX coords = backbone(n, phi, psi);
-	type rama_e = rama_energy(phi, psi);
-	printf("rama_energy: %f\n",rama_e);
-	type hydro_e = hydrophobic_energy(s,coords);
-	printf("hydro_energy: %f\n",hydro_e);
-	type elec_e = electrostatic_energy(s, coords);
-	printf("elec_e: %f\n",elec_e);
-	type pack_e = packing_energy(s, coords);
-	printf("pack_energy: %f\n",pack_e);
-	// Pesi per i diversi contributi
-	type w_rama = 1.0, w_hydro = 0.5, w_elec = 0.2, w_pack = 0.3;
-	//Energia totale
-	type total_e = w_rama*rama_e + w_hydro*hydro_e + w_elec*elec_e + w_pack*pack_e;
-	return total_e;
-}
-
-
-
-
+extern void prova(params* input);
 
 void pst(params* input){
-	type energy_p=0;
-	char* aminoacidi = input->seq;
-	int n=sizeof(aminoacidi) / sizeof(aminoacidi[0]);
-	VECTOR v_phi = (type*)malloc(n * sizeof(type));
-	VECTOR v_psi = (type*)malloc(n * sizeof(type));
-	type T=input->to;
-	gen_rnd_mat(v_phi, n);
-	gen_rnd_mat(v_psi, n);
-	energy_p = energy(aminoacidi, v_phi, v_psi);
-	printf("Value of energy_p: %f\n", energy_p);
-	type t=0;
-	do{
-		int i = rand()%n;
-		type delta_phi =  (random()*2 * M_PI) - M_PI;
-		v_phi[i] = v_phi[i] + delta_phi;
-		type delta_psi =  (random()*2 * M_PI) - M_PI;
-		v_psi[i] = v_phi[i] + delta_psi;
-		type delta_e = energy(aminoacidi, v_phi, v_psi)-energy_p;
-		if(delta_e<=0.0){
-		energy_p = energy(aminoacidi, v_phi, v_psi);
-		}else{
-		type p=exp(-(delta_e)/(input->k*T));
-		int r=rand()%1;//vedere
-		if(r<=p){
-			energy_p = energy(aminoacidi, v_phi, v_psi);
-		}else{
-			v_phi[i] = v_phi[i] - delta_phi;
-			v_psi[i] = v_phi[i] - delta_psi;//vedere se - o +
-		}
-		}
-		t=t+1;
-		T=input->to-sqrt(input->alpha*t);
-		}while(T>=0);
-		printf("hello\n");
-		//ritornare vettori
+	// --------------------------------------------------------------
+	// Codificare qui l'algoritmo di Predizione struttura terziaria
+	// --------------------------------------------------------------
 }
 
-
 int main(int argc, char** argv) {
-	printf("hello\n");
-
-
 	char fname_phi[256];
-	
 	char fname_psi[256];
 	char* seqfilename = NULL;
 	clock_t t;
 	float time;
 	int d;
-
-	
-
 	
 	//
 	// Imposta i valori di default dei parametri
@@ -649,14 +304,12 @@ int main(int argc, char** argv) {
 	input->sd = -1;		
 	input->phi = NULL;		
 	input->psi = NULL;
+	input->e = -1;
 	input->silent = 0;
 	input->display = 0;
-	input->e = -1;
 	input->hydrophobicity = hydrophobicity;
 	input->volume = volume;
 	input->charge = charge;
-
-	
 
 
 	//
@@ -679,8 +332,6 @@ int main(int argc, char** argv) {
 	//
 	// Legge i valori dei parametri da riga comandi
 	//
-
-	
 
 	int par = 1;
 	while (par < argc) {
@@ -736,8 +387,6 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	
-
 	//
 	// Legge i dati e verifica la correttezza dei parametri
 	//
@@ -746,9 +395,7 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
-
 	input->seq = load_seq(seqfilename, &input->N, &d);
-	
 
 	
 	if(d != 1){
@@ -789,7 +436,7 @@ int main(int argc, char** argv) {
 	}
 
 	// COMMENTARE QUESTA RIGA!
-	//prova(input);
+	prova(input);
 	//
 
 	//
