@@ -290,15 +290,15 @@ void gen_rnd_mat(VECTOR v, int N){
 
 void rotation(VECTOR axis, type theta, MATRIX R){
 
-	type scalare=axis[0]*axis[0]+axis[1]*axis[1]+axis[1]*axis[1];
+	type scalare=axis[0]*axis[0]+axis[1]*axis[1]+axis[2]*axis[2];
 	axis[0] /= scalare;
 	axis[1] /= scalare;
 	axis[2] /= scalare;
 
 	type a= cos(theta / 2.0);
-	type b= -axis[0] +sin(theta / 2.0);
-	type c= -axis[1] +sin(theta / 2.0);
-	type d= -axis[2] +sin(theta / 2.0);
+	type b= -axis[0] *sin(theta / 2.0);
+	type c= -axis[1] *sin(theta / 2.0);
+	type d= -axis[2] *sin(theta / 2.0);
 
 	type aa = a * a, bb = b * b, cc = c * c, dd = d * d;
 	type bc = b * c, ad = a * d, cd = c * d, ab = a * b, bd = b * d, ac = a * c;
@@ -318,9 +318,9 @@ void rotation(VECTOR axis, type theta, MATRIX R){
 }
 
 void matrixProd(MATRIX m1, MATRIX m2){
-	m1[0]=m1[0]*m2[0]+m1[0]*m2[3]+m1[0]*m2[6];
-	m1[1]=m1[1]*m2[1]+m1[1]*m2[4]+m1[1]*m2[7];
-	m1[2]=m1[2]*m2[2]+m1[2]*m2[5]+m1[2]*m2[8];
+	m1[0]=m1[0]*m2[0]+m1[1]*m2[3]+m1[2]*m2[6];
+	m1[1]=m1[0]*m2[1]+m1[1]*m2[4]+m1[2]*m2[7];
+	m1[2]=m1[0]*m2[2]+m1[1]*m2[5]+m1[2]*m2[8];
 }
 
 MATRIX backbone(int n, VECTOR phi, VECTOR psi){
@@ -340,8 +340,8 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 
 	MATRIX coords = aligned_alloc(16, ((n * 3) * 3) * sizeof(type));
 	
-	coords[0]=0.0,coords[1]=0.0,coords[2]=0.0;//N
-	coords[3]=r_ca_n,coords[4]=0.0,coords[5]=0.0;//Ca
+	coords[0]=0.0;coords[1]=0.0;coords[2]=0.0;//N
+	coords[3]=r_ca_n;coords[4]=0.0;coords[5]=0.0;//Ca
 
 
 	//	N	 Ca	   C
@@ -381,9 +381,9 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 
 			norma=sqrt(v2[0]*v2[0]+v2[1]*v2[1]+v2[2]*v2[2]);
 
-			v2[0]=v2[0] /= norma;
-			v2[1]=v2[1] /= norma;
-			v2[2]=v2[2] /= norma;
+			v2[0]=v2[0] / norma;
+			v2[1]=v2[1] / norma;
+			v2[2]=v2[2] / norma;
 
 			newv[0]=0.0;
 			newv[1]=r_ca_n;
@@ -404,9 +404,9 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 
 			norma=sqrt(v3[0]*v3[0]+v3[1]*v3[1]+v3[2]*v3[2]);
 
-			v3[0]=v3[0] /= norma;
-			v3[1]=v3[1] /= norma;
-			v3[2]=v3[2] /= norma;
+			v3[0]=v3[0] / norma;
+			v3[1]=v3[1] / norma;
+			v3[2]=v3[2] / norma;
 
 			newv[0]=0.0;
 			newv[1]=r_ca_c;
@@ -424,18 +424,17 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 	return coords;
 }
 
-type rama_energy(VECTOR phi, VECTOR psi){
-  	type res=0;
-	int n = sizeof(phi) / sizeof(phi[0]);
+type rama_energy(int n, VECTOR phi, VECTOR psi){
+  	type e=0.0;
 	float alpha_phi = -57.8, alpha_psi = -47.0;
 	float beta_phi = -119.0, beta_psi = 113.0;
 
 	for(int i = 0; i<n; i++){
 	    type alpha_dist = sqrt( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
 	    type beta_dist = sqrt( (phi[i]-beta_phi)*(phi[i]-beta_phi) + (psi[i]-beta_psi)*(psi[i]-beta_psi) );
-	    res = res + 0.5*fmin(alpha_dist, beta_dist);
+	    e = e + 0.5*fmin(alpha_dist, beta_dist);
 	}
-	return res;
+	return e;
 }
 
 type min(type a, type b){
@@ -446,7 +445,7 @@ type min(type a, type b){
 }
 
 MATRIX coordinate_c_alpha(MATRIX coords, int n){
-	MATRIX ris = aligned_alloc(16, ((n*3)*3)*sizeof(type));
+	MATRIX ris = aligned_alloc(16, ((n*3))*sizeof(type));
 	int idx = 0;
 	for(int i = 3; i<n*9; i = i+9){
 		ris[idx] = coords[i];
@@ -457,125 +456,151 @@ MATRIX coordinate_c_alpha(MATRIX coords, int n){
 	return ris;
 }
 
+//	N     Ca	C   
+//0,0,0,1,1,1,2,2,2
+
 float dist(VECTOR v1, VECTOR v2){
 	return sqrt((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[3]-v1[3])*(v2[3]-v1[3]));
 }
 
 
-type hydrophobic_energy(char* s, MATRIX coords){ //OCCHIO A S NON SAPPIAMO SE VECTOR
-	type e;
-    int n = sizeof(s) / sizeof(s[0]);
-    MATRIX ca_coords = coordinate_c_alpha(coords, n); //evitabile come il metodo sotto :)
+type hydrophobic_energy(int n, char* s, MATRIX coords){
+	type e=0.0;
+    MATRIX ca_coords = coordinate_c_alpha(coords, n);
     float v1[3], v2[3];
+	int ammI=0;
+	int ammJ=0;
+	int indxI=0;
+	int indxJ=0;
 
-    for(int i = 0; i<n*3; i = i+3){
+	for(int i = 0; i<n; i++){
+       	v1[0] = ca_coords[indxI];
+        v1[1] = ca_coords[indxI+1];
+        v1[2] = ca_coords[indxI+2]; //abbiamo le coordinate dell'i-esimo amminoacido in v1
 
-        v1[0] = ca_coords[i];
-        v1[1] = ca_coords[i+1];
-        v1[2] = ca_coords[i+2]; //abbiamo le coordinate dell'i-esimo amminoacido in v1
+		indxJ=i+3;
 
-        for(int j = i+3; j<n*3; j = j+3){
-
-            v2[0] = ca_coords[j];
-            v2[1] = ca_coords[j+1];
-            v2[2] = ca_coords[j+2]; //abbiamo le coordinate del j-esimo amminoacido in v2
+		for(int j = i+1; j<n;j++){
+			v2[0] = ca_coords[indxJ];
+			v2[1] = ca_coords[indxJ+1];
+            v2[2] = ca_coords[indxJ+2]; //abbiamo le coordinate del j-esimo amminoacido in v2
 
             if(dist(v1,v2)<10.0){
-				e = e + (hydrophobicity[s[i]] * hydrophobicity[s[j]])/dist(v1,v2);//controllare conversione i //////////////////////////////////////////////////////////////////////////////
+				ammI=((int)s[i])-65;
+				ammJ=((int)s[j])-65;
+				e = e + ((hydrophobicity[ammI] * hydrophobicity[ammJ])/dist(v1,v2));
 			}
-                
+            indxJ+=3;
         }
+		indxI+=3;
     }
 	return e;
 }
 
 
 
-type electrostatic_energy(char* s, MATRIX coords){
-	type e;
-	int n = sizeof(s) / sizeof(s[0]);
+type electrostatic_energy(int n, char* s, MATRIX coords){
+	type e=0.0;
 	MATRIX ca_coords = coordinate_c_alpha(coords, n);
+	int ammI=0;
+	int ammJ=0;
+	int indxI=0;
+	int indxJ=3;
 
 	float v1[3], v2[3];
 
-	for(int i = 0; i<n*3; i = i+3){
+	for(int i = 0; i<n; i++){
+		v1[0] = ca_coords[indxI];
+		v1[1] = ca_coords[indxI+1];
+		v1[2] = ca_coords[indxI+2];
 
-		v1[0] = ca_coords[i];
-		v1[1] = ca_coords[i+1];
-		v1[2] = ca_coords[i+2];
+		indxJ=i+3;
 
+		for(int j = i+1; j<n; j++){
 
-		int amm=0;
+			v2[0] = ca_coords[indxJ];
+			v2[1] = ca_coords[indxJ+1];
+			v2[2] = ca_coords[indxJ+2];
 
-		for(int j = i+3; j<n*3; j = j+3){
+			ammI=(int)s[i]-65;
+			ammJ=(int)s[j]-65;
 
-			v2[0] = ca_coords[j];
-			v2[1] = ca_coords[j+1];
-			v2[2] = ca_coords[j+2];
+			type distV=dist(v1,v2);
 
-			amm=(int)s[(j/3)%3]-65;
+			if(i!=j and distV>0 and distV<10.0 and charge[ammI]!=0 and charge[ammJ])
+				e = e + (charge[ammI] * charge[ammJ])/(distV*4.0);
 
-			if(dist(v1,v2)<10.0 and charge[amm]!=0 and charge[amm])
-				e = e + (hydrophobicity[amm] * hydrophobicity[amm])/dist(v1,v2);
+			indxJ+=3;
 		}
+		indxI+=3;
+
 	}
 	return e;
 }
+//0,0,0,1,1,1,2,2,2
+//i=3
+//j=6
 
-type packing_energy(char* s, MATRIX coords){
-
-	int n = sizeof(s) / sizeof(s[0]);
+type packing_energy(int n, char* s, MATRIX coords){
 	MATRIX ca_coords = coordinate_c_alpha(coords, n);
-	type e=0;
-	
-
+	type e=0.0;
+	int ammI=0;
+	int ammJ=0;
 	float v1[3], v2[3];
+	int indxI=0;
+	int indxJ=0;
 
-	for(int i = 0; i<n*3; i = i+3){
+	for(int i = 0; i<n; i++){
 
-		v1[0] = ca_coords[i];
-		v1[1] = ca_coords[i+1];
-		v1[2] = ca_coords[i+2];    //abbiamo le coordinate dell'i-esimo amminoacido in v1
+		v1[0] = ca_coords[indxI];
+		v1[1] = ca_coords[indxI+1];
+		v1[2] = ca_coords[indxI+2];    //abbiamo le coordinate dell'i-esimo amminoacido in v1
 
 		type density=0;
-		int amm=0;
 
-		for(int j = 0; j<n*3; j = j+3){
+		for(int j = 0; j<n; j++){
 
-			v2[0] = ca_coords[j];
-			v2[1] = ca_coords[j+1];
-			v2[2] = ca_coords[j+2];  //abbiamo le coordinate del j-esimo amminoacido in v2
+			v2[0] = ca_coords[indxJ];
+			v2[1] = ca_coords[indxJ+1];
+			v2[2] = ca_coords[indxJ+2];  //abbiamo le coordinate del j-esimo amminoacido in v2
 
 			
-
-			if(i!=0 and dist(v1,v2)<10.0){
-				amm=((int)s[((j/3)%3)])-65;
-				density = density + (volume[amm]/(dist(v1, v2)*dist(v1, v2)*dist(v1, v2)));
+			type distV=dist(v1, v2);
+			if(i!=j and distV<10.0){
+				ammI=((int)s[i])-65;
+				ammJ=((int)s[j])-65;
+				density = density + (volume[ammJ]/(distV*distV*distV));
 			}
-				
+			indxJ+=3;
 		}
-		e = e + (volume[amm]-(density*density));
+		indxJ=0;
+		indxI+=3;
+		e = e + ((volume[ammI]-(density))*(volume[ammI]-(density)));
 	}
 
 	return e;
 }
 
 
-type energy(char* s, VECTOR phi, VECTOR psi){
-	int n = sizeof(s) / sizeof(s[0]);
+type energy(int n, char* s, VECTOR phi, VECTOR psi){
 	MATRIX coords = backbone(n, phi, psi);
-	type rama_e = rama_energy(phi, psi);
+	type rama_e = rama_energy(n, phi, psi);
 	printf("rama_energy: %f\n",rama_e);
-	type hydro_e = hydrophobic_energy(s,coords);
+	type hydro_e = hydrophobic_energy(n, s,coords);
 	printf("hydro_energy: %f\n",hydro_e);
-	type elec_e = electrostatic_energy(s, coords);
+	type elec_e = electrostatic_energy(n, s, coords);
 	printf("elec_e: %f\n",elec_e);
-	type pack_e = packing_energy(s, coords);
+	type pack_e = packing_energy(n, s, coords);
 	printf("pack_energy: %f\n",pack_e);
 	// Pesi per i diversi contributi
 	type w_rama = 1.0, w_hydro = 0.5, w_elec = 0.2, w_pack = 0.3;
 	//Energia totale
 	type total_e = w_rama*rama_e + w_hydro*hydro_e + w_elec*elec_e + w_pack*pack_e;
+	printf("%f\n",total_e);
+	for(int i=0;i<9*sizeof(type);i++){
+		printf("coords[%d]=%f\n",i,coords[i]);
+	}
+	exit(1);
 	return total_e;
 }
 
@@ -586,13 +611,14 @@ type energy(char* s, VECTOR phi, VECTOR psi){
 void pst(params* input){
 	type energy_p=0;
 	char* aminoacidi = input->seq;
-	int n=sizeof(aminoacidi) / sizeof(aminoacidi[0]);
+	int n= input->N;
 	VECTOR v_phi = (type*)malloc(n * sizeof(type));
 	VECTOR v_psi = (type*)malloc(n * sizeof(type));
 	type T=input->to;
 	gen_rnd_mat(v_phi, n);
 	gen_rnd_mat(v_psi, n);
-	energy_p = energy(aminoacidi, v_phi, v_psi);
+	printf("%s\n",aminoacidi);
+	energy_p = energy(n,aminoacidi, v_phi, v_psi);
 	printf("Value of energy_p: %f\n", energy_p);
 	type t=0;
 	do{
@@ -601,14 +627,14 @@ void pst(params* input){
 		v_phi[i] = v_phi[i] + delta_phi;
 		type delta_psi =  (random()*2 * M_PI) - M_PI;
 		v_psi[i] = v_phi[i] + delta_psi;
-		type delta_e = energy(aminoacidi, v_phi, v_psi)-energy_p;
+		type delta_e = energy(n,aminoacidi, v_phi, v_psi)-energy_p;
 		if(delta_e<=0.0){
-		energy_p = energy(aminoacidi, v_phi, v_psi);
+		energy_p = energy(n,aminoacidi, v_phi, v_psi);
 		}else{
 		type p=exp(-(delta_e)/(input->k*T));
 		int r=rand()%1;//vedere
 		if(r<=p){
-			energy_p = energy(aminoacidi, v_phi, v_psi);
+			energy_p = energy(n, aminoacidi, v_phi, v_psi);
 		}else{
 			v_phi[i] = v_phi[i] - delta_phi;
 			v_psi[i] = v_phi[i] - delta_psi;//vedere se - o +
@@ -617,15 +643,22 @@ void pst(params* input){
 		t=t+1;
 		T=input->to-sqrt(input->alpha*t);
 		}while(T>=0);
-		printf("hello\n");
-		//ritornare vettori
+		/*printf("v_phi:\n");
+		for (int i = 0; i < n; i++) {
+			printf("v_phi[%d] = %.2f\n", i, v_phi[i]); 
+		}
+
+		printf("\nv_psi:\n");
+		for (int i = 0; i < n; i++) {
+			printf("v_psi[%d] = %.2f\n", i, v_psi[i]);
+		}
+
+		free(v_phi);
+		free(v_psi);*/
 }
 
 
 int main(int argc, char** argv) {
-	printf("hello\n");
-
-
 	char fname_phi[256];
 	
 	char fname_psi[256];
