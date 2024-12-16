@@ -312,47 +312,51 @@ double sin_approx(double x) {
 
 void rotation(VECTOR axis, type theta, MATRIX R){
 
-	type scalare=axis[0]*axis[0]+axis[1]*axis[1]+axis[2]*axis[2];
-	axis[0] /= scalare;
-	axis[1] /= scalare;
-	axis[2] /= scalare;
+	double norm = axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2];
+	axis[0] /= norm;
+	axis[1] /= norm;
+	axis[2] /= norm;
+    
 
-	type a= cos_approx(theta / 2.0);
-	type b= -axis[0] *sin_approx(theta / 2.0);
-	type c= -axis[1] *sin_approx(theta / 2.0);
-	type d= -axis[2] *sin_approx(theta / 2.0);
+
+	type a = cos_approx(theta / 2.0);
+    type b = -axis[0] * sin_approx(theta / 2.0);
+	type c = -axis[1] * sin_approx(theta / 2.0);
+    type d = -axis[2] * sin_approx(theta / 2.0);
+
 
 	type aa = a * a, bb = b * b, cc = c * c, dd = d * d;
 	type bc = b * c, ad = a * d, cd = c * d, ab = a * b, bd = b * d, ac = a * c;
 
 	R[0] = aa + bb - cc - dd;
-	R[1] = 2 * (bc + ad);
-	R[2] = 2 * (bd - ac);
+	R[1] = 2.0 * (bc + ad);
+	R[2] = 2.0 * (bd - ac);
 
-	R[3] = 2 * (bc - ad);
+	R[3] = 2.0 * (bc - ad);
 	R[4] =  aa + cc - bb - dd;
-	R[5] = 2 * (cd + ab);
+	R[5] = 2.0 * (cd + ab);
 
-	R[6] = 2 * (bd + ac);
-	R[7] = 2 * (cd - ab);
+	R[6] = 2.0 * (bd + ac);
+	R[7] = 2.0 * (cd - ab);
 	R[8] = aa + dd - bb - cc;
 
 }
 
 MATRIX matrixProd(MATRIX m1, MATRIX m2){
-	MATRIX res = (MATRIX)malloc(3*sizeof(type));
+	MATRIX res = (MATRIX)aligned_alloc(16, 3 * sizeof(type));
 	res[0]=m1[0]*m2[0]+m1[1]*m2[3]+m1[2]*m2[6];
 	res[1]=m1[0]*m2[1]+m1[1]*m2[4]+m1[2]*m2[7];
 	res[2]=m1[0]*m2[2]+m1[1]*m2[5]+m1[2]*m2[8];
 	return res;
 }
 
+
 MATRIX backbone(int n, VECTOR phi, VECTOR psi){
-	type v1[3];
-	type v2[3];
-	type v3[3];
-	type norma=0;
-	type newv[3];
+	type* v1=alloc_matrix(3,1);
+	type* v2=alloc_matrix(3,1);
+	type* v3=alloc_matrix(3,1);
+	type norma=0.0;
+	MATRIX newv=(MATRIX)malloc(3*sizeof(type));
 	MATRIX R = (MATRIX)malloc(9*sizeof(type));
 	const type r_ca_n = 1.46;
 	const type r_ca_c = 1.52;
@@ -362,11 +366,16 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 	const type theta_c_n_ca = 2.124;
 	const type theta_n_ca_c = 1.940;
 
-	MATRIX coords = aligned_alloc(16, ((n * 3) * 3) * sizeof(type));
-	MATRIX prod = aligned_alloc(16, 3 * sizeof(type));
+	MATRIX coords = (MATRIX)aligned_alloc(16, ((n * 3) * 3) * sizeof(type));
+	MATRIX prod = (MATRIX)aligned_alloc(16, 3 * sizeof(type));
 	
-	coords[0]=0.0;coords[1]=0.0;coords[2]=0.0;//N
-	coords[3]=r_ca_n;coords[4]=0.0;coords[5]=0.0;//Ca
+	coords[0]=0.0;
+	coords[1]=0.0;
+	coords[2]=0.0;//N
+
+	coords[3]=r_ca_n;
+	coords[4]=0.0;
+	coords[5]=0.0;//Ca
 
 
 	//	N	 Ca	   C
@@ -380,11 +389,12 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			v1[1]=coords[idx-2]-coords[idx-5];
 			v1[2]=coords[idx-1]-coords[idx-4];
 
-			norma=sqrt(v1[0]*v1[0]+v1[1]*v1[1]+v1[2]*v1[2]);
 
-			v1[0]=v1[0] /= norma;
-			v1[1]=v1[1] /= norma;
-			v1[2]=v1[2] /= norma;
+			norma=sqrt((v1[0]*v1[0])+(v1[1]*v1[1])+(v1[2]*v1[2]));
+
+			v1[0]=v1[0] / norma;
+			v1[1]=v1[1] / norma;
+			v1[2]=v1[2] / norma;
 
 			newv[0]=0.0;
 			newv[1]=r_c_n;
@@ -417,43 +427,60 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			rotation(v2, phi[i], R);
 
 			prod=matrixProd(newv,R);
+			//prod=matrixVectorMultiplication(R, newv);
 
 			coords[idx+3]=coords[idx]+prod[0];
 			coords[idx+4]=coords[idx+1]+prod[1];
 			coords[idx+5]=coords[idx+2]+prod[2];
-		}else{
-			//Posiziona C usando l'ultimo psi
-			v3[0]=coords[idx+3]-coords[idx];
-			v3[1]=coords[idx+4]-coords[idx+1];
-			v3[2]=coords[idx+5]-coords[idx+2];
-
-			norma=sqrt(v3[0]*v3[0]+v3[1]*v3[1]+v3[2]*v3[2]);
-
-
-			v3[0]=v3[0] / norma;
-			v3[1]=v3[1] / norma;
-			v3[2]=v3[2] / norma;
-
-			newv[0]=0.0;
-			newv[1]=r_ca_c;
-			newv[2]=0.0;
-
-			rotation(v3, psi[i], R);
-
-			prod=matrixProd(newv,R);
-
-			coords[idx+6]=coords[idx+3]+prod[0];
-			coords[idx+7]=coords[idx+4]+prod[1];
-			coords[idx+8]=coords[idx+5]+prod[2];
 		}
+		//Posiziona C usando l'ultimo psi
+		v3[0]=coords[idx+3]-coords[idx];
+		v3[1]=coords[idx+4]-coords[idx+1];
+		v3[2]=coords[idx+5]-coords[idx+2];
+
+		norma=sqrt(v3[0]*v3[0]+v3[1]*v3[1]+v3[2]*v3[2]);
+
+
+		v3[0]=v3[0] / norma;
+		v3[1]=v3[1] / norma;
+		v3[2]=v3[2] / norma;
+
+		newv[0]=0.0;
+		newv[1]=r_ca_c;
+		newv[2]=0.0;
+
+		rotation(v3, psi[i], R);
+
+		/*for(int i=0;i<9;i++){
+			printf("R: %f\n",R[i]);
+		}*/
+
+		//printf("psi:%f\n",psi[i]);
+
+		prod=matrixProd(newv,R);
+		//prod=matrixVectorMultiplication(R, newv);
+
+		/*for(int i=0;i<3;i++){
+			printf("prod[%d]:%f\n",i,prod[i]);
+		}*/
+
+		coords[idx+6]=coords[idx+3]+prod[0];
+		coords[idx+7]=coords[idx+4]+prod[1];
+		coords[idx+8]=coords[idx+5]+prod[2];
+
+		/*for(int i=6;i<9;i++){
+			printf("coords[%d]:%f\n",i,coords[i]);
+		}
+
+		exit(1);*/
 	}
 	return coords;
 }
 
 type rama_energy(int n, VECTOR phi, VECTOR psi){
   	type e=0.0;
-	float alpha_phi = -57.8, alpha_psi = -47.0;
-	float beta_phi = -119.0, beta_psi = 113.0;
+	type alpha_phi = -57.8, alpha_psi = -47.0;
+	type beta_phi = -119.0, beta_psi = 113.0;
 
 	for(int i = 0; i<n; i++){
 	    type alpha_dist = sqrt( (phi[i]-alpha_phi)*(phi[i]-alpha_phi) + (psi[i]-alpha_psi)*(psi[i]-alpha_psi) );
@@ -639,11 +666,9 @@ void pst(params* input){
 	type energy_p=0;
 	char* aminoacidi = input->seq;
 	int n= input->N;
-	VECTOR v_phi = (type*)malloc(n * sizeof(type));
-	VECTOR v_psi = (type*)malloc(n * sizeof(type));
+	VECTOR v_phi = input->phi;
+	VECTOR v_psi = input->psi;
 	type T=input->to;
-	gen_rnd_mat(v_phi, n);
-	gen_rnd_mat(v_psi, n);
 	energy_p = energy(n,aminoacidi, v_phi, v_psi);
 	printf("Value of energy_p: %f\n", energy_p);
 	type t=0;
