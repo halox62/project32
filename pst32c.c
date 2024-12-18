@@ -329,6 +329,7 @@ void rotation(VECTOR axis, type theta, MATRIX R){
 	type bc = b * c, ad = a * d, cd = c * d, ab = a * b, bd = b * d, ac = a * c;
 
 	R[0] = aa + bb - cc - dd;
+
 	R[1] = 2.0 * (bc + ad);
 	R[2] = 2.0 * (bd - ac);
 
@@ -401,7 +402,7 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 			newv[2]=0.0;
 
 			rotation(v1, theta_c_n_ca, R);
-
+			
 			prod=matrixProd(newv,R);
 
 			coords[idx]=coords[idx-3]+prod[0];
@@ -468,11 +469,6 @@ MATRIX backbone(int n, VECTOR phi, VECTOR psi){
 		coords[idx+7]=coords[idx+4]+prod[1];
 		coords[idx+8]=coords[idx+5]+prod[2];
 
-		/*for(int i=6;i<9;i++){
-			printf("coords[%d]:%f\n",i,coords[i]);
-		}
-
-		exit(1);*/
 	}
 	return coords;
 }
@@ -509,8 +505,8 @@ MATRIX coordinate_c_alpha(MATRIX coords, int n){
 	return ris;
 }
 
-//	N     Ca	C   
-//0,0,0,1,1,1,2,2,2
+//	N     Ca	C    N     Ca
+//0,0,0,1,1,1,2,2,2,3,3,3,4,4,4
 
 float dist(VECTOR v1, VECTOR v2){
 	return sqrt((v2[0]-v1[0])*(v2[0]-v1[0]) + (v2[1]-v1[1])*(v2[1]-v1[1]) + (v2[2]-v1[2])*(v2[2]-v1[2]));
@@ -520,7 +516,8 @@ float dist(VECTOR v1, VECTOR v2){
 type hydrophobic_energy(int n, char* s, MATRIX coords){
 	type e=0.0;
     MATRIX ca_coords = coordinate_c_alpha(coords, n);
-    type v1[3], v2[3];
+    type* v1=alloc_matrix(3,1);
+	type* v2=alloc_matrix(3,1);
 	int ammI=0;
 	int ammJ=0;
 	int indxI=0;
@@ -531,7 +528,7 @@ type hydrophobic_energy(int n, char* s, MATRIX coords){
         v1[1] = ca_coords[indxI+1];
         v1[2] = ca_coords[indxI+2]; //abbiamo le coordinate dell'i-esimo amminoacido in v1
 
-		indxJ=i+3;
+		indxJ=i*3+3;
 
 		for(int j = i+1; j<n;j++){
 			v2[0] = ca_coords[indxJ];
@@ -568,7 +565,7 @@ type electrostatic_energy(int n, char* s, MATRIX coords){
 		v1[1] = ca_coords[indxI+1];
 		v1[2] = ca_coords[indxI+2];
 
-		indxJ=i+3;
+		indxJ=i*3+3;
 
 		for(int j = i+1; j<n; j++){
 
@@ -639,22 +636,22 @@ type packing_energy(int n, char* s, MATRIX coords){
 type energy(int n, char* s, VECTOR phi, VECTOR psi){
 	MATRIX coords = backbone(n, phi, psi);
 	type rama_e = rama_energy(n, phi, psi);
-	printf("rama_energy: %f\n",rama_e);
+	//printf("rama_energy: %f\n",rama_e);
 	type hydro_e = hydrophobic_energy(n, s,coords);
-	printf("hydro_energy: %f\n",hydro_e);
+	//printf("hydro_energy: %f\n",hydro_e);
 	type elec_e = electrostatic_energy(n, s, coords);
-	printf("elec_e: %f\n",elec_e);
+	//printf("elec_e: %f\n",elec_e);
 	type pack_e = packing_energy(n, s, coords);
-	printf("pack_energy: %f\n",pack_e);
+	//printf("pack_energy: %f\n",pack_e);
 	// Pesi per i diversi contributi
 	type w_rama = 1.0, w_hydro = 0.5, w_elec = 0.2, w_pack = 0.3;
 	//Energia totale
 	type total_e = w_rama*rama_e + w_hydro*hydro_e + w_elec*elec_e + w_pack*pack_e;
-	printf("%f\n",total_e);
+	/*printf("%f\n",total_e);
 	for(int i=0;i<35;i++){
 		printf("coords[%d]=%f\n",i,coords[i]);
 	}
-	exit(1);
+	exit(1);*/
 	return total_e;
 }
 
@@ -663,7 +660,7 @@ type energy(int n, char* s, VECTOR phi, VECTOR psi){
 
 
 void pst(params* input){
-	type energy_p=0;
+	type energy_p=0.0;
 	char* aminoacidi = input->seq;
 	int n= input->N;
 	VECTOR v_phi = input->phi;
@@ -671,41 +668,34 @@ void pst(params* input){
 	type T=input->to;
 	energy_p = energy(n,aminoacidi, v_phi, v_psi);
 	printf("Value of energy_p: %f\n", energy_p);
-	type t=0;
+	type t=0.0;
 	do{
-		int i = rand()%n;
+		int i = random()*n;
 		type delta_phi =  (random()*2 * M_PI) - M_PI;
 		v_phi[i] = v_phi[i] + delta_phi;
 		type delta_psi =  (random()*2 * M_PI) - M_PI;
-		v_psi[i] = v_phi[i] + delta_psi;
+		v_psi[i] = v_psi[i] + delta_psi;
 		type delta_e = energy(n,aminoacidi, v_phi, v_psi)-energy_p;
 		if(delta_e<=0.0){
-		energy_p = energy(n,aminoacidi, v_phi, v_psi);
+			energy_p = energy(n,aminoacidi, v_phi, v_psi);
 		}else{
-		type p=exp(-(delta_e)/(input->k*T));
-		int r=rand()%1;//vedere
-		if(r<=p){
-			energy_p = energy(n, aminoacidi, v_phi, v_psi);
-		}else{
-			v_phi[i] = v_phi[i] - delta_phi;
-			v_psi[i] = v_phi[i] - delta_psi;//vedere se - o +
-		}
+			type p=exp(-(delta_e)/(input->k*T));
+			type r=random();
+			if(r<=p){
+				energy_p = energy(n, aminoacidi, v_phi, v_psi);
+			}else{
+				v_phi[i] = v_phi[i] - delta_phi;
+				v_psi[i] = v_psi[i] - delta_psi;
+			}
 		}
 		t=t+1;
 		T=input->to-sqrt(input->alpha*t);
 		}while(T>=0);
-		/*printf("v_phi:\n");
-		for (int i = 0; i < n; i++) {
-			printf("v_phi[%d] = %.2f\n", i, v_phi[i]); 
-		}
 
-		printf("\nv_psi:\n");
-		for (int i = 0; i < n; i++) {
-			printf("v_psi[%d] = %.2f\n", i, v_psi[i]);
-		}
+		printf("ENERGY:%f\n", energy_p);
 
-		free(v_phi);
-		free(v_psi);*/
+		//free(v_phi);
+		//free(v_psi);
 }
 
 
@@ -913,6 +903,8 @@ int main(int argc, char** argv) {
 			printf("]\n");
 		}
 	}
+
+	
 
 	if(!input->silent)
 		printf("\nDone.\n");
